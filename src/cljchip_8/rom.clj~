@@ -1,0 +1,19 @@
+ (ns cljchip-8.rom
+   (:require [cljchip-8.proj-asserts :refer :all]
+             [clojure.java.io :refer [input-stream file]]
+             [cljchip-8.binary :refer :all]))
+
+;; (defn file->byte-array
+;;   "Provide an object of the file type supplied by clojure.java.io, and an integer size of the byte-array"
+;;   [file]
+;;   (assert-is-file file)
+;;   (with-open [in (input-stream file)]
+;;     (let [buf (byte-array (.length file))]
+;;       (.read in buf)
+;;       buf)))
+
+;; (defn byte-array->rom
+;;   "Prove a byte-array and return a rom defined as a vector of bytes who can fit in the chip-8 program bank"
+;;   [byte-array]
+;;   (assert-is-byte-array byte-array)
+;;   (vec byte-array))

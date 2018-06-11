@@ -1,0 +1,106 @@
+Chip-8 Virtual Machine
+
+Project Statement
+To implement the Chip-8 abstraction.
+
+* Machine (state)
+** Memory
+*** DONE 1 Byte Memory Location Size
+*** 4096 (0x1000) Memory Locations
+**** Memory Allocation
+     | From (inc)   | To (exc)     | Purpose                                  |
+     | 0 (0x0000)   | 512 (0x0200) | Chip-8 Interpreter (font data otherwise) |
+     | 512 (0x0200) | 3744 (0xEA0) | Program                                  |
+     | 3744 (0xEA0) | 3839 (0xEFF) | call stack, internal use, etc            |
+     | 3840 (0xF00) | 4095 (0xFFF) | display refresh                          |
+
+*** Registers
+**** 16 8-bit data registers named from V0 .. VF & a 16 bit address register I
+**** VF
+***** doubles as a flag for some instructions, this it should be avoided.
+***** Operation VF is for carry flag.
+***** While in subtraction, is the "no borrow" flag.
+***** In the draw instruction VF is set upon pixel collision.
+**** I 
+***** Address Register
+***** 16 bits wide
+***** Used in multiple opcodes who involve memory operations
+*** The Stack
+**** Used only to store return addresses when subroutines are called.
+**** Allocates 48 bytes for up to 24 levels of nesting.
+*** Timers (2 timers)
+**** Both count down at 60 hertz, until they reach 0.
+**** Delay timer
+***** Intended to be used for timing the vents of games.
+***** Value can be set or get
+**** Sound Timer
+***** Used for sound effects.
+***** When its value is nonzero, a beeping sound is made.
+* I/O
+*** Input
+**** Hex Keyboard 
+**** 16 keys
+**** Range from 0 to F
+**** Opcodes depend directly on Input
+*** Graphics
+**** Display Resolution 64x32 pixels
+**** Color is monochrome
+**** Drawn to the screen solely by drawing sprites
+***** 8 pixels wide
+***** 1 to 15 pixels height
+***** Sprite pixels are XOR'd with corresponding screen pixels
+****** Sprite pixels are set to flip the color of the corresponding screen pixel
+****** Unset sprite pixels do nothing
+**** The carry flag (VF) is set to 1 if any screen pixels are flipped from set to unset when a sprite is down and set to 0 otherwise.
+*** Sound
+**** Beeping sound is played when the value of the sound timer is nonzero
+* Programmability
+** 35 opcodes
+** 2 bytes long
+** big-endian
+*** Read from far left to far right
+** Opcode Parameter Template
+- NNN :: Address
+- NN :: 8-bit constant
+- N :: 4-bit constant
+- X :: 4-bit register identifier
+- Y :: 4-bit register identifier
+- PC :: Program Counter
+- I :: 16-bit Register
+** Opcode Table
+| Opcode | Type    | C Pseudo             | Purpose                                                                                                                                                                                                                                                                                                                                                                                  |
+| 0NNN   | Call    |                      | Calls RCA 1802 program at address NNN.                                                                                                                                                                                                                                                                                                                                                   |
+| 00E0   | Display | disp_clear()         | Clears the screen.                                                                                                                                                                                                                                                                                                                                                                       |
+| 00EE   | Flow    | return:              | Returns from a subroutine.                                                                                                                                                                                                                                                                                                                                                               |
+| 1NNN   | Flow    | goto NNN             | Jumps to address NNN                                                                                                                                                                                                                                                                                                                                                                     |
+| 2NNN   | Flow    | *(0xNNN)()           | Calls subroutine at NNN                                                                                                                                                                                                                                                                                                                                                                  |
+| 3XNN   | Cond    | if(Vx==NN)           | Skips the next instruction if VX equals NN.                                                                                                                                                                                                                                                                                                                                              |
+| 4XNN   | Cond    | if(Vx!=NN)           | Skips the next instruction if VX doesn't equal NN.                                                                                                                                                                                                                                                                                                                                       |
+| 5XY0   | Cond    | if(VX==VY)           | Skips the next instruction if VX equals VY.                                                                                                                                                                                                                                                                                                                                              |
+| 6XNN   | Const   | Vx=NN                | Sets Vx to NN                                                                                                                                                                                                                                                                                                                                                                            |
+| 7XNN   | Const   | Vx += NN             | Adds NN to VX (carry flag is not changed)                                                                                                                                                                                                                                                                                                                                                |
+| 8XY0   | Assign  | Vx=Vy                | Sets Vx to the value of Vy                                                                                                                                                                                                                                                                                                                                                               |
+| 8XY1   | BitOp   | Vx=Vx or Vy          | Sets Vx to Vx or Vy (bitwise or)                                                                                                                                                                                                                                                                                                                                                         |
+| 8XY2   | BitOp   | Vx=Vx and Vy         | Sets Vx to Vx and Vy (bitwise and)                                                                                                                                                                                                                                                                                                                                                       |
+| 8XY3   | BitOp   | Vx=Vx xor Vy         | Sets Vx to Vx xor Vy                                                                                                                                                                                                                                                                                                                                                                     |
+| 8XY4   | Math    | Vx += Vy             | Adds Vy to Vx. Vf is set to 1 when there's a carry, and to 0 when there isn't.                                                                                                                                                                                                                                                                                                           |
+| 8XY5   | Math    | Vx -= Vy             | Vy is subtracted from Vx. Vf is set to 0 when there's a borrow, and 1 when there isn't.                                                                                                                                                                                                                                                                                                  |
+| 8XY6   | BitOp   | Vx=Vy=Vy>>1          | Shifts Vy right by one and stores the result in Vx. Vf is set to the value of the least significant bit of Vy before the shift.                                                                                                                                                                                                                                                          |
+| 8XY7   | Math    | Vx=Vy-Vx             | Sets Vx to Vy minus Vx. Vf is set to 0 when there's a borrow, and 1 when there isn't.                                                                                                                                                                                                                                                                                                    |
+| 8XYE   | BitOp   | Vx=Vy=Vy<<1          | Shifts Vy left by one and copies the result to Vx. Vf is set to the value of the most significant bit of Vy before the shift.                                                                                                                                                                                                                                                            |
+| 9XY0   | Cond    | if(Vx!=Vy)           | Skips the next instruction if Vx Doesn't equal Vy)                                                                                                                                                                                                                                                                                                                                       |
+| ANNN   | MEM     | I = NNN              | Sets I to the address NNN.                                                                                                                                                                                                                                                                                                                                                               |
+| BNNN   | Flow    | PC=V0+NNN            | Jumps to the address NNN plus V0                                                                                                                                                                                                                                                                                                                                                         |
+| CXNN   | Rand    | Vx=rand()&NN         | sets Vx to the result of a bitwise and operation on a random number and NN                                                                                                                                                                                                                                                                                                               |
+| DXYN   | Disp    | draw(Vx,Vy,N)        | Draws a sprite at coordinate (Vx, Vy) that has a width of 8 pixels and a height of N pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I value doesn't change after the execution of this instruction. As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that doesn't happen. |
+| EX9E   | KeyOp   | if(key()==Vx)        | Skips the next instruction if the key stored in Vx is pressed.                                                                                                                                                                                                                                                                                                                           |
+| EXA1   | KeyOp   | if(key()!=Vx)        | Skips the next instruction if the key stored in Vx is not pressed.                                                                                                                                                                                                                                                                                                                       |
+| FX07   | Timer   | Vx = get_delay()     | Sets Vx to the value of the delay timer.                                                                                                                                                                                                                                                                                                                                                 |
+| FX0A   | KeyOp   | Vx = get_key()       | A key press is awaited and then stored in Vx.                                                                                                                                                                                                                                                                                                                                            |
+| FX15   | Timer   | Vx = delay_timer(vX) | Sets the delay timer to Vx.                                                                                                                                                                                                                                                                                                                                                              |
+| FX18   | Sounds  | sound_timer(Vx)      | Sets the sound timer to Vx.                                                                                                                                                                                                                                                                                                                                                              |
+| FX1E   | MEM     | I += Vx              | Adds Vx to I.                                                                                                                                                                                                                                                                                                                                                                            |
+| FX29   | MEM     | I=sprite_addr[Vx]    | Sets I to the location of the sprite for the character in Vx. Characters 0-F, represented in 4x5 font.                                                                                                                                                                                                                                                                                   |
+| FX33   | BCD     | set_BCD              | Stores the binary-coded decimal representation of Vx, with the most significant of three digits at the address in I, the middle digit at I + 1, and leas significant digit at I + 2.                                                                                                                                                                                                     |
+| FX55   | MEM     | reg_dump(Vx,&I)      | Stores V0 to Vx (inclusive) in memory starting at address I. I is increased by 1 for each value written.                                                                                                                                                                                                                                                                                 |
+| FX65   | MEM     | reg_load(Vx,&I)      | Fills V0 to Vx (inclusive) with values from memory starting at address I. I is increased by 1 for each value written.                                                                                                                                                                                                                                                                    |

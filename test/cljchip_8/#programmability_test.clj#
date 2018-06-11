@@ -1,0 +1,3 @@
+(ns cljchip-8.binary-test
+  (:require [clojure.test :refer :all]
+            [cljchip-8.binary :refer :all]
